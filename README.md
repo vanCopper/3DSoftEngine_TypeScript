@@ -1,1 +1,0 @@
-# 3DSoftEngine_TypeScript
