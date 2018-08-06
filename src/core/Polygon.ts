@@ -6,9 +6,9 @@
 namespace core{
 
     export class Polygon{
-        private indexA:number;
-        private indexB:number;
-        private indexC:number;
+        public indexA:number;
+        public indexB:number;
+        public indexC:number;
 
         constructor(indexA:number, indexB:number, indexC:number){
             this.indexA = indexA;
