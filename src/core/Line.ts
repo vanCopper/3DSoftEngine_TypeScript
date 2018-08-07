@@ -11,8 +11,8 @@ namespace core{
             this.rotation = utils.Vector3.Zero();
             this.position = utils.Vector3.Zero();
             this.vertices = new Array(2);
-            this.vertices[0] = p0;
-            this.vertices[1] = p1;
+            this.vertices[0] = new Vertex(new utils.Vector3(0, 0, 0), p0, null);
+            this.vertices[1] = new Vertex(new utils.Vector3(0,0 ,0), p1, null);
         }
     }
 

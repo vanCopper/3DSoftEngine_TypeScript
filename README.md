@@ -8,6 +8,11 @@
 
 ![](./resource/example_02.png)
 
-#### Rasterization
+##### Rasterization
 
 ![](./resource/example_03.png)
+
+##### Flat Shading
+
+![](./resource/example_04.png)
+

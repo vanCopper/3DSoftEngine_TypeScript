@@ -8,7 +8,7 @@ namespace core{
 
         public position:utils.Vector3;
         public rotation:utils.Vector3;
-        public vertices:utils.Vector3[];
+        public vertices:Vertex[];
         public polygons:core.Polygon[];
         public name:string;
 

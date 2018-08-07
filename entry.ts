@@ -62,14 +62,14 @@ function test_cube(){
     mesh = new core.Mesh("Cube", 8, 12);
     meshes.push(mesh);
     //顶点
-    mesh.vertices[0] = new utils.Vector3(-1, 1, 1);
-    mesh.vertices[1] = new utils.Vector3(1, 1, 1);
-    mesh.vertices[2] = new utils.Vector3(-1, -1, 1);
-    mesh.vertices[3] = new utils.Vector3(1, -1, 1);
-    mesh.vertices[4] = new utils.Vector3(-1, 1, -1);
-    mesh.vertices[5] = new utils.Vector3(1, 1, -1);
-    mesh.vertices[6] = new utils.Vector3(1, -1, -1);
-    mesh.vertices[7] = new utils.Vector3(-1, -1, -1);
+    mesh.vertices[0] = new core.Vertex(null, new utils.Vector3(-1, 1, 1), null);
+    mesh.vertices[1] = new core.Vertex(null, new utils.Vector3(1, 1, 1), null);
+    mesh.vertices[2] = new core.Vertex(null, new utils.Vector3(-1, -1, 1), null);
+    mesh.vertices[3] = new core.Vertex(null, new utils.Vector3(1, -1, 1), null);
+    mesh.vertices[4] = new core.Vertex(null, new utils.Vector3(-1, 1, -1), null);
+    mesh.vertices[5] = new core.Vertex(null, new utils.Vector3(1, 1, -1), null);
+    mesh.vertices[6] = new core.Vertex(null, new utils.Vector3(1, -1, -1), null);
+    mesh.vertices[7] = new core.Vertex(null, new utils.Vector3(-1, -1, -1), null);
     // 面
     mesh.polygons[0] = new core.Polygon(0, 1, 2);
     mesh.polygons[1] = new core.Polygon(1, 2, 3);
@@ -122,7 +122,7 @@ function createMeshes(jsonObj:any):core.Mesh[]{
         // 顶点
         let verticesArr:number[] = jsonObj.meshes[meshIndex].vertices;
         // 面
-        let polygonsArr:number[] = jsonObj.meshes[meshIndex].indices;
+        let indicesArray:number[] = jsonObj.meshes[meshIndex].indices;
         //UV
         let uvCount:number = jsonObj.meshes[meshIndex].uvCount;
         let verticesStep = 1;
@@ -141,24 +141,26 @@ function createMeshes(jsonObj:any):core.Mesh[]{
         }
 
         let verticesCount = verticesArr.length/verticesStep;
-        let polygonCount = polygonsArr.length/3;
+        let polygonCount = indicesArray.length/3;
         let mesh:core.Mesh = new core.Mesh(jsonObj.meshes[meshIndex].name, verticesCount, polygonCount);
-        //填充顶点
+        //填充顶点 法线
         for (let index = 0; index < verticesCount; index++){
             let x = verticesArr[index * verticesStep];
             let y = verticesArr[index * verticesStep + 1];
             let z = verticesArr[index * verticesStep + 2];
-            mesh.vertices[index] = new utils.Vector3(x, y, z);
+
+            let nx = verticesArr[index * verticesStep + 3];
+            let ny = verticesArr[index * verticesStep + 4];
+            let nz = verticesArr[index * verticesStep + 5];
+            mesh.vertices[index] = new core.Vertex(new utils.Vector3(nx, ny, nz), new utils.Vector3(x, y, z), null);
         }
 
         //填充面信息
-
         for(let index:number = 0; index < polygonCount; index++){
-            let a = polygonsArr[index*3];
-            let b = polygonsArr[index*3 + 1];
-            let c = polygonsArr[index*3 + 2];
+            let a = indicesArray[index*3];
+            let b = indicesArray[index*3 + 1];
+            let c = indicesArray[index*3 + 2];
             mesh.polygons[index] = new core.Polygon(a, b, c);
-
         }
 
         let position = jsonObj.meshes[meshIndex].position;

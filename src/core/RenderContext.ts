@@ -57,13 +57,27 @@ namespace core{
         }
 
         // 将3d坐标转换为屏幕2d坐标
-        public project(coord:utils.Vector3, transMat:utils.Matrix):utils.Vector3{
-            let point:utils.Vector3 = utils.Vector3.TransformCoordinates(coord, transMat);
+        // public project(coord:utils.Vector3, transMat:utils.Matrix):utils.Vector3{
+        //     let point:utils.Vector3 = utils.Vector3.TransformCoordinates(coord, transMat);
+        //     // 变换后原点在坐标系中心点
+        //     // 将原点移动至左上角
+        //     let x:number = point.x * this.workingWidth + this.workingWidth/2.0 >> 0;
+        //     let y:number = -point.y * this.workingHeight + this.workingHeight/2.0 >> 0;
+        //     return new utils.Vector3(x,y, point.z);
+        // }
+
+        public project(vertex:Vertex, transMat:utils.Matrix, worldMat:utils.Matrix):Vertex{
+            let rVertex:Vertex;
+            let point:utils.Vector3 = utils.Vector3.TransformCoordinates(vertex.coordinates, transMat);
+            //在3D空间 转换坐标和法线
+            let point3d:utils.Vector3 = utils.Vector3.TransformCoordinates(vertex.coordinates, worldMat);
+            let normal3d:utils.Vector3 = utils.Vector3.TransformCoordinates(vertex.normal, worldMat);
             // 变换后原点在坐标系中心点
             // 将原点移动至左上角
-            let x:number = point.x * this.workingWidth + this.workingWidth/2.0 >> 0;
-            let y:number = -point.y * this.workingHeight + this.workingHeight/2.0 >> 0;
-            return new utils.Vector3(x,y, point.z);
+            let x:number = point.x * this.workingWidth + this.workingWidth/2.0;
+            let y:number = -point.y * this.workingHeight + this.workingHeight/2.0;
+            rVertex = new Vertex(normal3d, new utils.Vector3(x,y,point.z), point3d);
+            return rVertex;
         }
 
         public drawPoint(point:utils.Vector3, color:utils.Color4=new utils.Color4(1,1,0,1)):void{
@@ -144,6 +158,21 @@ namespace core{
         }
 
         /**
+         * 计算光向量和法向量之间角度的余弦值
+         * 0-1之间
+         * @param {utils.Vector3} vertex
+         * @param {utils.Vector3} normal
+         * @param {utils.Vector3} lightPos
+         * @returns {number}
+         */
+        public computeNDotL(vertex:utils.Vector3, normal:utils.Vector3, lightPos:utils.Vector3):number{
+            let lightDir = lightPos.subtract(vertex);
+            normal.normalize();
+            lightDir.normalize();
+            return Math.max(0, utils.Vector3.Dot(normal, lightDir));
+        }
+
+        /**
          * 在两点之间从左到右画线
          * papb->pcpd
          * pa,pb,pc,pd已排序
@@ -154,14 +183,20 @@ namespace core{
          * @param {utils.Vector3} pd
          * @param {utils.Color4} color
          */
-        public processScanLine(y:number, pa:utils.Vector3, pb:utils.Vector3,
-                               pc:utils.Vector3, pd:utils.Vector3, color:utils.Color4):void
+        // public processScanLine(y:number, pa:utils.Vector3, pb:utils.Vector3,
+        //                        pc:utils.Vector3, pd:utils.Vector3, color:utils.Color4):void
+        public processScanLine(slData:ScanLineData, va:Vertex, vb:Vertex,
+                               vc:Vertex, vd:Vertex, color:utils.Color4):void
         {
+            let pa:utils.Vector3 = va.coordinates;
+            let pb:utils.Vector3 = vb.coordinates;
+            let pc:utils.Vector3 = vc.coordinates;
+            let pd:utils.Vector3 = vd.coordinates;
             // 由当前y值 计算出梯度
             // 再计算出 sx, ex
             // 如果 pa.y == pb.y 或者 pc.y = pd.y 梯度为 1
-            let gradient1 = pa.y != pb.y ? (y-pa.y)/(pb.y-pa.y) : 1;
-            let gradient2 = pc.y != pd.y ? (y-pc.y)/(pd.y - pc.y) : 1;
+            let gradient1 = pa.y != pb.y ? (slData.currentY-pa.y)/(pb.y-pa.y) : 1;
+            let gradient2 = pc.y != pd.y ? (slData.currentY-pc.y)/(pd.y - pc.y) : 1;
 
             let sx = this.interpolate(pa.x, pb.x, gradient1) >> 0;
             let ex = this.interpolate(pc.x, pd.x, gradient2) >> 0;
@@ -173,28 +208,49 @@ namespace core{
 
                 var gradient:number = (x-sx)/(ex-sx);
                 let z = this.interpolate(z1, z2, gradient);
-                this.drawPoint(new utils.Vector3(x, y, z), color);
+                let ndotl = slData.ndotla;
+                let eColor:utils.Color4 = new utils.Color4(color.r * ndotl, color.g * ndotl,
+                                                            color.b * ndotl, 1);
+                this.drawPoint(new utils.Vector3(x, slData.currentY, z), eColor);
             }
         }
 
-        public drawTriangle(dp1:utils.Vector3, dp2:utils.Vector3, dp3:utils.Vector3, color:utils.Color4):void{
-            let sortArr = [dp1, dp2, dp3];
-            sortArr.sort((a, b)=>{
-                if(a.y < b.y){
-                    return -1;
-                }
-                //TODO: a.y = b.y ???
-                if(a.y > b.y)
-                {
-                    return 1;
-                }
-            });
-            // p1在最上面 p2在中间 p3在最下面
-            let p1:utils.Vector3 = sortArr[0];
-            let p2:utils.Vector3 = sortArr[1];
-            let p3:utils.Vector3 = sortArr[2];
+        // public drawTriangle(dp1:utils.Vector3, dp2:utils.Vector3, dp3:utils.Vector3, color:utils.Color4):void{
+        public drawTriangle(v1:Vertex, v2:Vertex, v3:Vertex, color:utils.Color4):void{
 
-            // 反向斜率
+            // p1在最上面 p2在中间 p3在最下面
+            if (v1.coordinates.y > v2.coordinates.y) {
+                var temp = v2;
+                v2 = v1;
+                v1 = temp;
+            }
+
+            if (v2.coordinates.y > v3.coordinates.y) {
+                var temp = v2;
+                v2 = v3;
+                v3 = temp;
+            }
+
+            if (v1.coordinates.y > v2.coordinates.y) {
+                var temp = v2;
+                v2 = v1;
+                v1 = temp;
+            }
+
+            var p1 = v1.coordinates;
+            var p2 = v2.coordinates;
+            var p3 = v3.coordinates;
+
+            // 求面的法向量 三个顶点法向量的平均值
+            let vnFace = (v1.normal.add(v2.normal.add(v3.normal))).scale(1/3);
+            // 面中心点
+            let centerPos = (v1.worldCoordinates.add(v2.worldCoordinates.add(v3.worldCoordinates))).scale(1/3);
+            // 光源位置
+            let lightPos:utils.Vector3 = new utils.Vector3(0, 10, 10);
+            let ndotl = this.computeNDotL(centerPos, vnFace, lightPos);
+
+            let data:ScanLineData = new ScanLineData(null, ndotl, null, null, null);
+            // 斜率
             let dP1P2:number;
             let dP1P3:number;
             if(p2.y - p1.y > 0){
@@ -222,13 +278,14 @@ namespace core{
             // -
             // P3
             if (dP1P2 > dP1P3) {
-                for (var y = p1.y >> 0; y <= p3.y >> 0; y++)
+                for (let y = p1.y >> 0; y <= p3.y >> 0; y++)
                 {
+                    data.currentY = y;
                     if (y < p2.y) {
-                        this.processScanLine(y, p1, p3, p1, p2, color);
+                        this.processScanLine(data, v1, v3, v1, v2, color);
                     }
                     else {
-                        this.processScanLine(y, p1, p3, p2, p3, color);
+                        this.processScanLine(data, v1, v3, v2, v3, color);
                     }
                 }
             }
@@ -244,13 +301,14 @@ namespace core{
             //        -
             //       P3
             else {
-                for (var y = p1.y >> 0; y <= p3.y >> 0; y++)
+                for (let y = p1.y >> 0; y <= p3.y >> 0; y++)
                 {
+                    data.currentY = y;
                     if (y < p2.y) {
-                        this.processScanLine(y, p1, p2, p1, p3, color);
+                        this.processScanLine(data, v1, v2, v1, v3, color);
                     }
                     else {
-                        this.processScanLine(y, p2, p3, p1, p3, color);
+                        this.processScanLine(data, v2, v3, v1, v3, color);
                     }
                 }
             }
@@ -273,15 +331,16 @@ namespace core{
 
                for(let p_index = 0; p_index < rMesh.polygons.length; p_index++){
                    let currentPolygon:core.Polygon = rMesh.polygons[p_index];
-                   let vertexA:utils.Vector3 = rMesh.vertices[currentPolygon.indexA];
-                   let vertexB:utils.Vector3 = rMesh.vertices[currentPolygon.indexB];
-                   let vertexC:utils.Vector3 = rMesh.vertices[currentPolygon.indexC];
+                   let vertexA:core.Vertex = rMesh.vertices[currentPolygon.indexA];
+                   let vertexB:core.Vertex = rMesh.vertices[currentPolygon.indexB];
+                   let vertexC:core.Vertex = rMesh.vertices[currentPolygon.indexC];
 
-                   let pA:utils.Vector3 = this.project(vertexA, transformMat);
-                   let pB:utils.Vector3 = this.project(vertexB, transformMat);
-                   let pC:utils.Vector3 = this.project(vertexC, transformMat);
+                   let pA:core.Vertex = this.project(vertexA, transformMat, worldMat);
+                   let pB:core.Vertex = this.project(vertexB, transformMat, worldMat);
+                   let pC:core.Vertex = this.project(vertexC, transformMat, worldMat);
 
-                   let color:number = 0.5 + ((p_index % rMesh.polygons.length) / rMesh.polygons.length) * 0.75;
+                   // let color:number = 0.5 + ((p_index % rMesh.polygons.length) / rMesh.polygons.length) * 0.75;
+                   let color:number = 1.0;
                    this.drawTriangle(pA, pB, pC, new utils.Color4(color, color, color, 1));
                    // this.drawLine(pA, pB);
                    // this.drawLine(pB, pC);
@@ -290,6 +349,22 @@ namespace core{
 
             }
 
+        }
+    }
+
+    class ScanLineData{
+        public currentY:any;
+        public ndotla:any;
+        public ndotlb:any;
+        public ndotlc:any;
+        public ndotld:any;
+
+        constructor(currentY:any, ndotla:any, ndotlb:any, ndotlc:any, ndotld:any){
+            this.currentY = currentY;
+            this.ndotla = ndotla;
+            this.ndotlb = ndotlb;
+            this.ndotlc = ndotlc;
+            this.ndotld = ndotld;
         }
     }
 }
