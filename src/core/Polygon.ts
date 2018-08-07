@@ -9,6 +9,7 @@ namespace core{
         public indexA:number;
         public indexB:number;
         public indexC:number;
+        public normal:utils.Vector3;
 
         constructor(indexA:number, indexB:number, indexC:number){
             this.indexA = indexA;

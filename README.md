@@ -20,3 +20,7 @@
 
 ![](./resource/example_05.png)
 
+##### Texture mapping & Back-face culling
+
+![](./resource/example_06.png)
+

@@ -118,6 +118,19 @@ function loadJsonFile(fileName:string, callback:(result:core.Mesh[])=>any):void
 
 function createMeshes(jsonObj:any):core.Mesh[]{
     let meshes:core.Mesh[]=[];
+    let materials:core.Material[]=[];
+
+    for(let materialIndex = 0; materialIndex < jsonObj.materials.length; materialIndex++){
+        let material:core.Material = {};
+        material.name = jsonObj.materials[materialIndex].name;
+        material.id = jsonObj.materials[materialIndex].id;
+        if(jsonObj.materials[materialIndex].diffuseTexture){
+            material.diffuseTextureName = jsonObj.materials[materialIndex].diffuseTexture.name;
+        }
+
+        materials[material.id] = material;
+    }
+
     for(let meshIndex = 0; meshIndex < jsonObj.meshes.length; meshIndex++){
         // 顶点
         let verticesArr:number[] = jsonObj.meshes[meshIndex].vertices;
@@ -153,6 +166,15 @@ function createMeshes(jsonObj:any):core.Mesh[]{
             let ny = verticesArr[index * verticesStep + 4];
             let nz = verticesArr[index * verticesStep + 5];
             mesh.vertices[index] = new core.Vertex(new utils.Vector3(nx, ny, nz), new utils.Vector3(x, y, z), null);
+
+            if(uvCount > 0){
+                // 处理UV坐标
+                let u = verticesArr[index * verticesStep + 6];
+                let v = verticesArr[index * verticesStep + 7];
+                mesh.vertices[index].textureCoordinates = new utils.Vector2(u, v);
+            }else{
+                mesh.vertices[index].textureCoordinates = new utils.Vector2(0,0 );
+            }
         }
 
         //填充面信息
@@ -165,6 +187,13 @@ function createMeshes(jsonObj:any):core.Mesh[]{
 
         let position = jsonObj.meshes[meshIndex].position;
         mesh.position = new utils.Vector3(position[0], position[1], position[2]);
+
+        if(uvCount > 0){
+            let materialId = jsonObj.meshes[meshIndex].materialId;
+            let materialName = materials[materialId].diffuseTextureName;
+            mesh.texture = new core.Texture("resource/"+materialName, 512, 512);
+        }
+        mesh.computeFacesNormals();
         meshes.push(mesh);
     }
 

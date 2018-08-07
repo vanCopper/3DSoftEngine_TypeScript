@@ -66,6 +66,13 @@ namespace core{
         //     return new utils.Vector3(x,y, point.z);
         // }
 
+        /**
+         * 等同 Vertex Shader
+         * @param {core.Vertex} vertex
+         * @param {utils.Matrix} transMat
+         * @param {utils.Matrix} worldMat
+         * @returns {core.Vertex}
+         */
         public project(vertex:Vertex, transMat:utils.Matrix, worldMat:utils.Matrix):Vertex{
             let rVertex:Vertex;
             let point:utils.Vector3 = utils.Vector3.TransformCoordinates(vertex.coordinates, transMat);
@@ -76,7 +83,7 @@ namespace core{
             // 将原点移动至左上角
             let x:number = point.x * this.workingWidth + this.workingWidth/2.0;
             let y:number = -point.y * this.workingHeight + this.workingHeight/2.0;
-            rVertex = new Vertex(normal3d, new utils.Vector3(x,y,point.z), point3d);
+            rVertex = new Vertex(normal3d, new utils.Vector3(x,y,point.z), point3d,vertex.textureCoordinates);
             return rVertex;
         }
 
@@ -176,6 +183,7 @@ namespace core{
          * 在两点之间从左到右画线
          * papb->pcpd
          * pa,pb,pc,pd已排序
+         * 等同 PixelShader
          * @param {number} y
          * @param {utils.Vector3} pa
          * @param {utils.Vector3} pb
@@ -186,7 +194,7 @@ namespace core{
         // public processScanLine(y:number, pa:utils.Vector3, pb:utils.Vector3,
         //                        pc:utils.Vector3, pd:utils.Vector3, color:utils.Color4):void
         public processScanLine(slData:ScanLineData, va:Vertex, vb:Vertex,
-                               vc:Vertex, vd:Vertex, color:utils.Color4):void
+                               vc:Vertex, vd:Vertex, color:utils.Color4, texture?:Texture):void
         {
             let pa:utils.Vector3 = va.coordinates;
             let pb:utils.Vector3 = vb.coordinates;
@@ -208,20 +216,38 @@ namespace core{
             let snl = this.interpolate(slData.ndotla, slData.ndotlb, gradient1);
             let enl = this.interpolate(slData.ndotlc, slData.ndotld, gradient2);
 
+            // 将纹理坐标插值到Y中
+            let su = this.interpolate(slData.ua, slData.ub, gradient1);
+            let eu = this.interpolate(slData.uc, slData.ud, gradient2);
+            let sv = this.interpolate(slData.va, slData.vb, gradient1);
+            let ev = this.interpolate(slData.vc, slData.vd, gradient2);
+
             for(let x = sx; x < ex; x++){
 
                 var gradient:number = (x-sx)/(ex-sx);
                 let z = this.interpolate(z1, z2, gradient);
                 // let ndotl = slData.ndotla;
                 let ndotl = this.interpolate(snl, enl, gradient);
-                let eColor:utils.Color4 = new utils.Color4(color.r * ndotl, color.g * ndotl,
-                                                            color.b * ndotl, 1);
+                let u = this.interpolate(su, eu, gradient);
+                let v = this.interpolate(sv, ev, gradient)
+
+                let textureColor;
+                if(texture){
+                    textureColor = texture.map(u,v);
+                }else
+                {
+                    textureColor = new utils.Color4(1, 1, 1, 1);
+                }
+
+                let eColor:utils.Color4 = new utils.Color4(color.r * ndotl * textureColor.r,
+                                                            color.g * ndotl * textureColor.g,
+                                                            color.b * ndotl * textureColor.b, 1);
                 this.drawPoint(new utils.Vector3(x, slData.currentY, z), eColor);
             }
         }
 
         // public drawTriangle(dp1:utils.Vector3, dp2:utils.Vector3, dp3:utils.Vector3, color:utils.Color4):void{
-        public drawTriangle(v1:Vertex, v2:Vertex, v3:Vertex, color:utils.Color4):void{
+        public drawTriangle(v1:Vertex, v2:Vertex, v3:Vertex, color:utils.Color4, texture?:Texture):void{
 
             // p1在最上面 p2在中间 p3在最下面
             if (v1.coordinates.y > v2.coordinates.y) {
@@ -295,14 +321,35 @@ namespace core{
                         data.ndotlb = nl3;
                         data.ndotlc = nl1;
                         data.ndotld = nl2;
-                        this.processScanLine(data, v1, v3, v1, v2, color);
+
+                        data.ua = v1.textureCoordinates.x;
+                        data.ub = v3.textureCoordinates.x;
+                        data.uc = v1.textureCoordinates.x;
+                        data.ud = v2.textureCoordinates.x;
+
+                        data.va = v1.textureCoordinates.y;
+                        data.vb = v3.textureCoordinates.y;
+                        data.vc = v1.textureCoordinates.y;
+                        data.vd = v2.textureCoordinates.y;
+
+                        this.processScanLine(data, v1, v3, v1, v2, color, texture);
                     }
                     else {
                         data.ndotla = nl1;
                         data.ndotlb = nl3;
                         data.ndotlc = nl2;
                         data.ndotld = nl3;
-                        this.processScanLine(data, v1, v3, v2, v3, color);
+
+                        data.ua = v1.textureCoordinates.x;
+                        data.ub = v3.textureCoordinates.x;
+                        data.uc = v2.textureCoordinates.x;
+                        data.ud = v3.textureCoordinates.x;
+
+                        data.va = v1.textureCoordinates.y;
+                        data.vb = v3.textureCoordinates.y;
+                        data.vc = v2.textureCoordinates.y;
+                        data.vd = v3.textureCoordinates.y;
+                        this.processScanLine(data, v1, v3, v2, v3, color, texture);
                     }
                 }
             }
@@ -326,14 +373,36 @@ namespace core{
                         data.ndotlb = nl2;
                         data.ndotlc = nl1;
                         data.ndotld = nl3;
-                        this.processScanLine(data, v1, v2, v1, v3, color);
+
+                        data.ua = v1.textureCoordinates.x;
+                        data.ub = v2.textureCoordinates.x;
+                        data.uc = v1.textureCoordinates.x;
+                        data.ud = v3.textureCoordinates.x;
+
+                        data.va = v1.textureCoordinates.y;
+                        data.vb = v2.textureCoordinates.y;
+                        data.vc = v1.textureCoordinates.y;
+                        data.vd = v3.textureCoordinates.y;
+
+                        this.processScanLine(data, v1, v2, v1, v3, color, texture);
                     }
                     else {
                         data.ndotla = nl2;
                         data.ndotlb = nl3;
                         data.ndotlc = nl1;
                         data.ndotld = nl3;
-                        this.processScanLine(data, v2, v3, v1, v3, color);
+
+                        data.ua = v2.textureCoordinates.x;
+                        data.ub = v3.textureCoordinates.x;
+                        data.uc = v1.textureCoordinates.x;
+                        data.ud = v3.textureCoordinates.x;
+
+                        data.va = v2.textureCoordinates.y;
+                        data.vb = v3.textureCoordinates.y;
+                        data.vc = v1.textureCoordinates.y;
+                        data.vd = v3.textureCoordinates.y;
+
+                        this.processScanLine(data, v2, v3, v1, v3, color, texture);
                     }
                 }
             }
@@ -353,23 +422,30 @@ namespace core{
                 let worldMat = utils.Matrix.RotationYawPitchRoll(rMesh.rotation.y, rMesh.rotation.x, rMesh.rotation.z)
                     .multiply(utils.Matrix.Translation(rMesh.position.x, rMesh.position.y, rMesh.position.z));
                 let transformMat = worldMat.multiply(viewMat).multiply(projectionMat);
-
+                let worldView = worldMat.multiply(viewMat);
                for(let p_index = 0; p_index < rMesh.polygons.length; p_index++){
                    let currentPolygon:core.Polygon = rMesh.polygons[p_index];
-                   let vertexA:core.Vertex = rMesh.vertices[currentPolygon.indexA];
-                   let vertexB:core.Vertex = rMesh.vertices[currentPolygon.indexB];
-                   let vertexC:core.Vertex = rMesh.vertices[currentPolygon.indexC];
 
-                   let pA:core.Vertex = this.project(vertexA, transformMat, worldMat);
-                   let pB:core.Vertex = this.project(vertexB, transformMat, worldMat);
-                   let pC:core.Vertex = this.project(vertexC, transformMat, worldMat);
+                   var transformedNormal = utils.Vector3.TransformNormal(currentPolygon.normal, worldView);
 
-                   // let color:number = 0.5 + ((p_index % rMesh.polygons.length) / rMesh.polygons.length) * 0.75;
-                   let color:number = 1.0;
-                   this.drawTriangle(pA, pB, pC, new utils.Color4(color, color, color, 1));
-                   // this.drawLine(pA, pB);
-                   // this.drawLine(pB, pC);
-                   // this.drawLine(pC, pA);
+                   // back-face culling
+                   if (transformedNormal.z < 0) {
+
+                       let vertexA: core.Vertex = rMesh.vertices[currentPolygon.indexA];
+                       let vertexB: core.Vertex = rMesh.vertices[currentPolygon.indexB];
+                       let vertexC: core.Vertex = rMesh.vertices[currentPolygon.indexC];
+
+                       let pA: core.Vertex = this.project(vertexA, transformMat, worldMat);
+                       let pB: core.Vertex = this.project(vertexB, transformMat, worldMat);
+                       let pC: core.Vertex = this.project(vertexC, transformMat, worldMat);
+
+                       // let color:number = 0.5 + ((p_index % rMesh.polygons.length) / rMesh.polygons.length) * 0.75;
+                       let color: number = 1.0;
+                       this.drawTriangle(pA, pB, pC, new utils.Color4(color, color, color, 1), rMesh.texture);
+                       // this.drawLine(pA, pB);
+                       // this.drawLine(pB, pC);
+                       // this.drawLine(pC, pA);
+                   }
                }
 
             }
@@ -383,13 +459,34 @@ namespace core{
         public ndotlb:any;
         public ndotlc:any;
         public ndotld:any;
+        public ua: number;
+        public ub: number;
+        public uc: number;
+        public ud: number;
 
-        constructor(currentY:any, ndotla:any, ndotlb:any, ndotlc:any, ndotld:any){
+        public va: number;
+        public vb: number;
+        public vc: number;
+        public vd: number;
+
+        constructor(currentY:any, ndotla:any, ndotlb:any, ndotlc:any, ndotld:any,
+                    ua?:number, ub?:number, uc?:number, ud?:number,
+                    va?:number, vb?:number, vc?:number, vd?:number){
             this.currentY = currentY;
             this.ndotla = ndotla;
             this.ndotlb = ndotlb;
             this.ndotlc = ndotlc;
             this.ndotld = ndotld;
+
+            this.ua = ua;
+            this.ub = ub;
+            this.uc = uc;
+            this.ud = ud;
+
+            this.va = va;
+            this.vb = vb;
+            this.vc = vc;
+            this.vd = vd;
         }
     }
 }
