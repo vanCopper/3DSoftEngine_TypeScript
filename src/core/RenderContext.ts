@@ -204,11 +204,16 @@ namespace core{
             // 计算开始的z，结束的z
             let z1:number = this.interpolate(pa.z, pb.z, gradient1);
             let z2:number = this.interpolate(pc.z, pd.z, gradient2);
+
+            let snl = this.interpolate(slData.ndotla, slData.ndotlb, gradient1);
+            let enl = this.interpolate(slData.ndotlc, slData.ndotld, gradient2);
+
             for(let x = sx; x < ex; x++){
 
                 var gradient:number = (x-sx)/(ex-sx);
                 let z = this.interpolate(z1, z2, gradient);
-                let ndotl = slData.ndotla;
+                // let ndotl = slData.ndotla;
+                let ndotl = this.interpolate(snl, enl, gradient);
                 let eColor:utils.Color4 = new utils.Color4(color.r * ndotl, color.g * ndotl,
                                                             color.b * ndotl, 1);
                 this.drawPoint(new utils.Vector3(x, slData.currentY, z), eColor);
@@ -242,14 +247,18 @@ namespace core{
             var p3 = v3.coordinates;
 
             // 求面的法向量 三个顶点法向量的平均值
-            let vnFace = (v1.normal.add(v2.normal.add(v3.normal))).scale(1/3);
+            // let vnFace = (v1.normal.add(v2.normal.add(v3.normal))).scale(1/3);
             // 面中心点
-            let centerPos = (v1.worldCoordinates.add(v2.worldCoordinates.add(v3.worldCoordinates))).scale(1/3);
+            // let centerPos = (v1.worldCoordinates.add(v2.worldCoordinates.add(v3.worldCoordinates))).scale(1/3);
             // 光源位置
             let lightPos:utils.Vector3 = new utils.Vector3(0, 10, 10);
-            let ndotl = this.computeNDotL(centerPos, vnFace, lightPos);
+            // let ndotl = this.computeNDotL(centerPos, vnFace, lightPos);
 
-            let data:ScanLineData = new ScanLineData(null, ndotl, null, null, null);
+            let nl1 = this.computeNDotL(v1.worldCoordinates, v1.normal, lightPos);
+            let nl2 = this.computeNDotL(v2.worldCoordinates, v2.normal, lightPos);
+            let nl3 = this.computeNDotL(v3.worldCoordinates, v3.normal, lightPos);
+
+            let data:ScanLineData = new ScanLineData(null, null, null, null, null);
             // 斜率
             let dP1P2:number;
             let dP1P3:number;
@@ -282,9 +291,17 @@ namespace core{
                 {
                     data.currentY = y;
                     if (y < p2.y) {
+                        data.ndotla = nl1;
+                        data.ndotlb = nl3;
+                        data.ndotlc = nl1;
+                        data.ndotld = nl2;
                         this.processScanLine(data, v1, v3, v1, v2, color);
                     }
                     else {
+                        data.ndotla = nl1;
+                        data.ndotlb = nl3;
+                        data.ndotlc = nl2;
+                        data.ndotld = nl3;
                         this.processScanLine(data, v1, v3, v2, v3, color);
                     }
                 }
@@ -305,9 +322,17 @@ namespace core{
                 {
                     data.currentY = y;
                     if (y < p2.y) {
+                        data.ndotla = nl1;
+                        data.ndotlb = nl2;
+                        data.ndotlc = nl1;
+                        data.ndotld = nl3;
                         this.processScanLine(data, v1, v2, v1, v3, color);
                     }
                     else {
+                        data.ndotla = nl2;
+                        data.ndotlb = nl3;
+                        data.ndotlc = nl1;
+                        data.ndotld = nl3;
                         this.processScanLine(data, v2, v3, v1, v3, color);
                     }
                 }

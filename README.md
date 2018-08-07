@@ -16,3 +16,7 @@
 
 ![](./resource/example_04.png)
 
+##### Gouraud Shading
+
+![](./resource/example_05.png)
+
