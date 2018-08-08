@@ -8,6 +8,8 @@ let renderContext: core.RenderContext;
 let mesh: core.Line;
 let meshes: core.Mesh[] = [];
 let camera: core.Camera;
+let fps:HTMLDivElement;
+let prevTime = Date.now();
 
 document.addEventListener("DOMContentLoaded", init, false);
 
@@ -17,6 +19,7 @@ function init(){
     camera = new core.Camera();
     renderContext = new core.RenderContext(canvas);
 
+    fps = <HTMLDivElement> document.getElementById("fps");
     // test_cube();
     test_monkey();
 
@@ -53,6 +56,12 @@ function loop() {
 
     renderContext.render(camera, meshes);
     renderContext.present();
+
+    let now = Date.now()
+    let currentFPS = 1000/(now - prevTime);
+    prevTime = now;
+    fps.textContent = currentFPS.toFixed(0);
+
     requestAnimationFrame(loop);
 }
 
